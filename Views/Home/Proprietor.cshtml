@@ -1,0 +1,300 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+}
+
+<div>
+    <p>這是老闆-餐點清單</p>
+    <table id="orderlist"
+           class="table table-hover table-dark">
+        <thead>
+            <tr class="">
+                <th colspan="3" class="text-center "><h1>店名</h1></th>
+            </tr>
+            <tr class="">
+                <th data-field="undo">未完成訂單</th>
+                <th data-field="done">已完成訂單</th>
+            </tr>
+        </thead>
+        <tbody id="orderlist_body">
+            <tr>
+                @*未完成清單*@
+                <td>
+                    <ul class="list-group " id="undo_list">
+                    </ul>
+                </td>
+                @*已完成清單*@
+                <td>
+                    <div class="list-group " id="done_list">
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+        <tfoot>
+        </tfoot>
+    </table>
+
+</div>
+
+<script>
+    function setUndoOrder() {
+        var json = 0
+        $.ajax({
+            url: "@Url.Action("GetUndoOrder")",
+            type: "post",
+            dataType: "json",
+            success: function (data) {
+                //資料的處理
+                localStorage.setItem("undo_data", JSON.stringify(data))
+                data.forEach((item) => {
+                    undo_order(item.head, item.bodys)
+
+                })
+            },
+            error: function (xhr, ajaxOptions, thrownError) {
+                alert("status: " + xhr.status);
+                alert(xhr.responseText);
+                alert(thrownError);
+            },
+            complete: function () {
+
+            }
+
+        })
+        return json
+    }
+    function undo_order(head, bodys) {
+        var formNum = head.formnum
+        var count = bodys.length
+        var uid = head.uid
+        var html_text = `
+    <li id="${uid}_li" class="list-group-item  justify-content-between align-items-center list-group-item-success">
+        <table id="${uid}_table" class="table table-borderless list-group-item-success">
+            <thead>
+                <tr>
+                    <th>
+                        訂單編號 ${formNum}
+                        <span class="badge bg-danger rounded-pill text-white " id="${uid}_span">${count}</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <div class="list-group item_list">
+
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>
+                        <button id="${uid}_btn" name="done_btn" type="button" class="btn btn-success">
+                            完成
+                        </button>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </li>
+    `
+        $('#undo_list').append(html_text)
+        var undo_count = bodys.filter(item => !item.itemDone).length
+        $(`#${uid}_span`).text(undo_count)
+        if (undo_count == 0) {
+            $(`#${uid}_span`).removeClass("bg-danger")
+            $(`#${uid}_span`).addClass("bg-success")
+
+        } else {
+            $(`#${uid}_span`).removeClass("bg-success")
+            $(`#${uid}_span`).addClass("bg-danger")
+        }
+        bodys.forEach((item) => {
+            var item_html = undo_order_item(head.uid, item.uid, item.item, item.count)
+            var selector = `#${uid}_table>tbody>tr>td>div`
+
+            $(selector).append(item_html)
+            cb_id = `cb_${head.uid}_${item.uid}`
+            $(`#${cb_id}`).prop('checked', item.itemDone)
+        }
+        )
+
+    }
+    function undo_order_item(item, count) {
+        item_html = `
+    <label class="list-group-item list-group-item-primary">
+        &ensp;
+        <input class="form-check-input me-1" type="checkbox" value="">
+        ${item} * ${count}
+    </label>
+    `
+        return item_html
+    }
+    $('#undo_list').on("change", 'input[name="item_checkbox"]', function () {
+        var h_uid = $(this).attr("id").split("_")[1]
+        var b_uid = $(this).attr("id").split("_")[2]
+        var undo_data = JSON.parse(localStorage.getItem("undo_data"))
+        var selectOrder = undo_data.find(order => order.head.uid == h_uid)
+        var selectItem = selectOrder.bodys.find(item => item.uid == b_uid)
+        selectItem.itemDone = $(this).prop('checked')
+        //變色
+        var undo_count = selectOrder.bodys.filter(item => !item.itemDone).length
+        $(`#${h_uid}_span`).text(undo_count)
+        if (undo_count == 0) {
+            $(`#${h_uid}_span`).removeClass("bg-danger")
+            $(`#${h_uid}_span`).addClass("bg-success")
+
+        } else {
+            $(`#${h_uid}_span`).removeClass("bg-success")
+            $(`#${h_uid}_span`).addClass("bg-danger")
+        }
+
+        localStorage.setItem("undo_data", JSON.stringify(undo_data))
+
+    });
+
+    function done_order(head, bodys) {
+        var formNum = head.formnum
+
+        var html_text = `
+    <div>
+        <button class="list-group-item list-group-item-action active btn-outline-success" type="button" data-toggle="collapse" data-target="#collapse${formNum}" aria-expanded="false" aria-controls="collapse${formNum}">
+            訂單編號 ${formNum}
+        </button>
+        <div class="collapse" id="collapse${formNum}">
+            <div class="card card-body">
+                <div class="list-group" name="item_list">
+
+                </div>
+                <div>
+                    <br />
+                        <button type="button" class="btn btn-outline-warning" id="btn${uid}" name="itemback_btn">
+                            返回
+                        </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `
+        $('#done_list').append(html_text)
+
+        bodys.forEach((item) => {
+            var item_html = done_order_item(item.item, item.count)
+            var selector = `#collapse${formNum}>div>div[name='item_list']`
+            $(selector).append(item_html)
+        }
+        )
+
+    }
+    function done_order_item(item, count) {
+        item_html = `
+    <label class="list-group-item list-group-item-primary">
+        &ensp;
+        ${item} * ${count}
+    </label>
+    `
+        return item_html
+    }
+    function setDoneOrder() {
+        var json = 0
+        $.ajax({
+            url: "@Url.Action("GetDoneOrder")",
+            type: "post",
+            dataType: "json",
+            success: function (data) {
+                localStorage.setItem("done_data", JSON.stringify(data))
+                data.forEach((item) => {
+                    done_order(item.head, item.bodys)
+
+                })
+            },
+            error: function (xhr, ajaxOptions, thrownError) {
+                alert("status: " + xhr.status);
+                alert(xhr.responseText);
+                alert(thrownError);
+            },
+            complete: function () {
+
+            }
+
+        })
+        return json
+    }
+    $('#done_list').on("click", 'button[name="itemback_btn"]', function () {
+        var uid = $(this).attr("id").replace("btn", "")
+        var undo_data = JSON.parse(localStorage.getItem("undo_data"))
+        var done_data = JSON.parse(localStorage.getItem("done_data"))
+        done_data.forEach((item, index) => {
+            if (item.head.uid == uid) {
+                undo_order(item.head, item.bodys)
+                undo_data[undo_data.length] = item
+                $(`#${uid}_div`).remove()
+                done_data.splice(index, 1)
+                localStorage.setItem("done_data", JSON.stringify(done_data))
+                localStorage.setItem("undo_data", JSON.stringify(undo_data))
+            }
+        })
+
+    });
+
+    function Exchange(is_init) {
+        //第一次進網頁則刪除原本的localStorage
+        if (is_init) {
+            localStorage.removeItem('done_data')
+            localStorage.removeItem('undo_data')
+
+        }
+
+        var done_data = localStorage.getItem('done_data') === null ? [] : JSON.parse(localStorage.getItem("done_data"))
+        var undo_data = localStorage.getItem("undo_data") === null ? [] : JSON.parse(localStorage.getItem("undo_data"))
+        var data = undo_data
+        done_data.forEach((item) => {
+            data[data.length] = item
+        })
+        var data_string = JSON.stringify(data)
+
+        $.ajax({
+            url: "@Url.Action("ExchangeData")",
+            type: "post",
+            data: {
+                "data": data_string
+            },
+            dataType: "json",
+            success: function (new_data) {
+                var done_data = localStorage.getItem('done_data') === null ? [] : JSON.parse(localStorage.getItem("done_data"))
+                var undo_data = localStorage.getItem("undo_data") === null ? [] : JSON.parse(localStorage.getItem("undo_data"))
+
+                new_data.forEach((item) => {
+
+                    if (item.head.orderDone) {
+                        done_order(item.head, item.bodys)
+                        done_data[done_data.length] = item
+                    }
+                    else {
+                        undo_order(item.head, item.bodys)
+                        undo_data[undo_data.length] = item
+                    }
+                })
+                localStorage.setItem("undo_data", JSON.stringify(undo_data))
+                localStorage.setItem("done_data", JSON.stringify(done_data))
+
+            },
+            error: function (xhr, ajaxOptions, thrownError) {
+                alert("status: " + xhr.status);
+                alert(xhr.responseText);
+                alert(thrownError);
+            },
+            complete: function () { }
+
+        })
+    }
+
+    //初始化
+    Exchange(true)
+    // 固定時間交換資料
+    setInterval(Exchange, 10000, false);
+
+
+</script>

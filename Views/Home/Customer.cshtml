@@ -1,0 +1,161 @@
+﻿
+
+
+<div>
+    <p>顧客-點菜單</p>
+</div>
+<div>
+
+    <table id="menu"
+           class="table table-bordered table-warning">
+        <thead>
+            <tr class="table-active">
+                <th colspan="3" class="text-center "><h1>店名</h1></th>
+            </tr>
+            <tr class="table-light">
+                <th data-field="item">品名</th>
+                <th data-field="price">單價</th>
+                <th data-field="count">數量</th>
+            </tr>
+        </thead>
+        <tbody id="menu_body">
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2"></td>
+                <th class="bg-warning">小計</th>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <div class="input-group flex-nowrap">
+                        <span class="input-group-text" id="phoneText">手機</span>
+                        <input type="text" id="phoneNum" class="form-control" maxlength="10" onkeyup="value = value.replace(/[^\d]/g,'')" placeholder="手機號碼" aria-label="phoneNumber" aria-describedby="phoneText">
+                    </div>
+                </td>
+
+                <th class="bg-warning">0</th>
+            </tr>
+            <tr>
+                <td colspan="2"></td>
+                <td>
+                    <button id="submitBtn" type="button" class="btn btn-primary">
+                        送出
+                    </button>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+    <input id="menu_data" style="visibility:hidden" value=@ViewBag.menuData />
+</div>
+
+<!-- 送出後的彈出視窗 -->
+<div class="modal fade" id="commitModal" tabindex="-1" role="dialog" aria-labelledby="commitModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="commitModalTitle">店名</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                您已經成功訂餐
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">關閉</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function addItemRow(uid, item, price) {
+        var data = `
+                <tr id=uid`+ uid + `>
+                    <td class="item"> `+ item + `</td>
+                    <td class="price">`+ price + `</td>
+                    <td class="count">
+                        <div class="input-group mb-3">
+                          <input type="text" class="form-control" placeholder="" aria-label="Count" name="item_count"  value="0">
+                        </div>
+                    </td>
+                </tr>
+    `
+        $('#menu_body').append(data);
+
+    }
+        //將資料轉成 map
+        var menuData = JSON.parse($("#menu_data").val())
+        menuData.forEach(function (row) {
+            addItemRow(row.Uid, row.Item, row.Price);
+        });
+
+    $("#submitBtn").click(function () {
+        var datamap = {}
+        $("#menu_body > tr").each(function () {
+
+            var count = $(this).children(".count").children("div").children("input").val()
+
+            if (count > 0) {//有點餐的才寫入
+                var uid = $(this).attr("id").replace("uid", "")//去頭"uid"，只留數字部分
+                item = $(this).children(".item").text()
+                price = $(this).children(".price").text()
+                datamap[uid] = {
+                    "uid": uid, "item": item, "price": price, "count": count
+                }
+
+            }
+
+        })
+
+        $('#menu_body').on("change", 'input[name="item_count"]', function () {
+            calculate_price()
+        });
+
+        function calculate_price() {
+
+            var total_price = 0
+            $("#menu_body > tr").each(function () {
+
+                var count = $(this).children(".count").children("div").children("input").val()
+
+                if (count > 0) {//有點餐的才計算
+
+                    item = $(this).children(".item").text()
+                    price = $(this).children(".price").text()
+                    total_price = total_price + (count * price)
+                }
+
+            })
+            $("#total_price").text(total_price)
+        }
+
+        //將資料轉成 json格式
+        var data = JSON.stringify(datamap)
+        alert(data.toString())
+
+        
+        $.ajax({
+            url: "@Url.Action("CreateOrder")",
+            type: "post",
+            data: { "data": data},
+            success: function (data) {
+                //清空資訊
+                $("#phoneNum").val('')
+                $("input[name='item_count']").val('0')
+                $("#total_price").text('0')
+                //開啟互動視窗
+                $("#commitModal").modal('show')
+            },
+            error: function (xhr, ajaxOptions, thrownError) {
+                alert(xhr.status);
+                alert(xhr.responseText);
+                alert(thrownError);
+            },
+            complete: function () {
+
+            }
+
+        })
+    })
+</script>
